@@ -1,0 +1,126 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TripStatus {
+  ACTIVE
+  OVERDUE
+  EMERGENCY
+  COMPLETED
+}
+
+enum AlertType {
+  OVERDUE
+  DEVICE
+  SOS
+}
+
+enum AlertSeverity {
+  MEDIUM
+  HIGH
+}
+
+enum AlertStatus {
+  PENDING_CONFIRM
+  ACTIVE
+  RESOLVED
+}
+
+model User {
+  id              String           @id @default(cuid())
+  email           String           @unique
+  passwordHash    String
+  name            String
+  createdAt       DateTime         @default(now())
+  trips           Trip[]
+  trustedContacts TrustedContact[]
+}
+
+model TrustedContact {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  phone     String?
+  relation  String?
+  createdAt DateTime @default(now())
+
+  tripLinks TripContact[]
+}
+
+model Trip {
+  id               String        @id @default(cuid())
+  userId           String
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  vehicleType      String
+  vehicleMake      String
+  vehicleModel     String
+  vehicleColor     String
+  plateNumber      String
+
+  fromLocation     String
+  toLocation       String
+  notes            String?
+
+  expectedArrival  DateTime
+  status           TripStatus    @default(ACTIVE)
+
+  lastLatitude     Float?
+  lastLongitude    Float?
+
+  checkedInAt      DateTime      @default(now())
+  checkedOutAt     DateTime?
+
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  contacts         TripContact[]
+  alerts           Alert[]
+  deviceEvents     DeviceEvent[]
+}
+
+model TripContact {
+  id               String         @id @default(cuid())
+  tripId           String
+  trip             Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  trustedContactId String
+  trustedContact   TrustedContact @relation(fields: [trustedContactId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, trustedContactId])
+}
+
+model Alert {
+  id          String        @id @default(cuid())
+  tripId      String
+  trip        Trip          @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  type        AlertType
+  event       String
+  heartRate   Int?
+  severity    AlertSeverity @default(MEDIUM)
+  status      AlertStatus   @default(PENDING_CONFIRM)
+
+  createdAt   DateTime      @default(now())
+  escalatedAt DateTime?
+  resolvedAt  DateTime?
+}
+
+model DeviceEvent {
+  id         String   @id @default(cuid())
+  tripId     String
+  trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  deviceType String
+  eventType  String
+  heartRate  Int?
+  latitude   Float?
+  longitude  Float?
+
+  createdAt  DateTime @default(now())
+}
